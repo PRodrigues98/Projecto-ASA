@@ -6,7 +6,8 @@
 typedef struct edge Edge;
 
 typedef struct vertex {
-	int id, d, low, inList;
+	int id, d, low;
+	char inList;
 	Edge *head;
 } Vertex;
 
@@ -32,7 +33,7 @@ int main(){
 
 	Vertex *graph = (Vertex*)malloc(sizeof(Vertex) * V);
 
-	for(i = 0; i < 9; i++){
+	for(i = 0; i < V; i++){
 		graph[i].id = i + 1;
 		graph[i].d = -1;
 		graph[i].low = -1;
@@ -90,30 +91,35 @@ void tarjanVisit(Vertex *u, Edge **stack, int *visited){
 	*visited += 1;
 
 	push(stack, u);
-	
-	Edge *v = u->head;
 
+	Edge *v = u->head;
 
 	while(v != NULL){
 		if(v->destVertex->d == -1 || v->destVertex->inList){
 			if(v->destVertex->d == -1){
 				tarjanVisit(v->destVertex, stack, visited);
 			}
-			u->low = (u->low > v->destVertex->low) ? v->destVertex->low : u->low;
+
+			if(u->low >= v->destVertex->low){
+				u->low = v->destVertex->low;
+			}
+		}
+
+		if(!(v->destVertex->inList)){
+			printf("%d %d\n", u->id, v->destVertex->id);
 		}
 
 		v = v->next;
 	}
 
-
 	if(u->d == u->low){
+		printf("\n");
 		do{
 			v = pop(stack);
 			printf("%d\n", v->destVertex->id);
 		} while(v->destVertex->id != u->id);
 		printf("\n");
 	}
-
 }
 
 
@@ -136,17 +142,21 @@ void push(Edge **stack, Vertex *u){
 
 Edge* pop(Edge **stack){
 
-	if(*stack == NULL){
-		return NULL;
+	Edge *popped = *stack;
+
+	if(popped->next == NULL){
+		Edge *new = (Edge*)malloc(sizeof(Edge));
+		new->destVertex = NULL;
+		new->next = NULL;
+		*stack = new;
 	}
 	else{
-		Edge *popped = *stack;
 		*stack = popped->next;
-
-		popped->destVertex->inList = 0;
-
-		return popped;
 	}
+
+	popped->destVertex->inList = 0;
+
+	return popped;
 
 }
 
