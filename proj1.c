@@ -17,7 +17,7 @@ typedef struct vertex Vertex;
 typedef struct connection Connection;
 
 typedef struct vertex {
-	int id, d, low, **SCCRoot, inList;
+	int id, d, low, inList;
 	Edge *head;
 } Vertex;
 
@@ -27,25 +27,31 @@ typedef struct edge {
 } Edge;
 
 typedef struct connection {
-	int **originId, destId, children;
+	int originId, destId;
 	Connection *next;
 } Connection;
 
 
+int *SCCRoot;
+int connectCount = 0;
+int SCCCount = 0;
+
+
 void add(Vertex *graph, int originId, int destId);
-void tarjan(Vertex *graph, int size, Connection **SCCConnects, int *SCCCount);
-void tarjanVisit(Vertex *u, Edge **stack, int *visited, Connection **SCCConnects, int *SCCCount);
+void tarjan(Vertex *graph, int size, Connection **SCCConnects);
+void tarjanVisit(Vertex *u, Edge **stack, int *visited, Connection **SCCConnects);
 void push(Edge **stack, Vertex *u);
-Edge* pop(Edge **stack);
+int pop(Edge **stack);
 
 
 int main(){
-	int V, E, i, originId, destId, SCCCount = 0;
+	int V, E, i, originId, destId;
 
 	scanf("%d", &V);
 	scanf("%d", &E);
 
 	Vertex *graph = (Vertex*)malloc(sizeof(Vertex) * V);
+	SCCRoot = (int*)malloc(sizeof(int)*(V+1));
 
 	/* Inicializacao da Connection List */
 	Connection **connects = (Connection**)malloc(sizeof(Connection*));
@@ -56,8 +62,6 @@ int main(){
 		graph[i].d = -1;
 		graph[i].low = -1;
 		graph[i].inList = 0;
-		graph[i].SCCRoot = (int**)malloc(sizeof(int*));
-		*(graph[i].SCCRoot) = NULL;
 
 		graph[i].head = NULL;
 	}
@@ -69,7 +73,7 @@ int main(){
 		add(graph, originId, destId);
 	}
 
-	tarjan(graph, V, connects, &SCCCount);
+	tarjan(graph, V, connects);
 
 	for(i = 0; i < V; i++){
 		while(graph[i].head != NULL){
@@ -84,7 +88,7 @@ int main(){
 	printf("%d\n", SCCCount);
 
 	if(connects != NULL){
-		int connectCount = (*connects)->children, realConnectCount = 0, j;
+		int realConnectCount = 0, j;
 
 		int *connectionsToOrder = (int*)malloc(sizeof(int)*connectCount*2);
 
@@ -102,14 +106,36 @@ int main(){
 		}
 
 		for(i = 0; i < connectCount; i++){
-			SET_ORIGIN(connectionsToOrder, i, *(*((*connects)->originId)));
-			SET_DEST(connectionsToOrder, i, (*connects)->destId);
 
-			count[(*connects)->destId] += 1;
+			int o, d;
+
+			if(SCCRoot[(*connects)->originId] < 0){ /* Caso seja o id mais pequeno do SCC nao sendo raiz */
+				o = (*connects)->originId;
+			}
+			else if(SCCRoot[SCCRoot[(*connects)->originId]] == -1 * (*connects)->originId){ /* Caso seja a raiz */
+				o = SCCRoot[(*connects)->originId];
+			}
+			else{ /* Caso nao seja nem o id mais pequeno do SCC nem raiz */
+				o = SCCRoot[SCCRoot[(*connects)->originId]];
+			}
+
+
+			if(SCCRoot[(*connects)->destId] < 0){ /* Caso seja o id mais pequeno do SCC nao sendo raiz */
+				d = (*connects)->destId;
+			}
+			else if(SCCRoot[SCCRoot[(*connects)->destId]] == -1 * (*connects)->destId){ /* Caso seja a raiz */
+				d = SCCRoot[(*connects)->destId];
+			}
+			else{ /* Caso nao seja nem o id mais pequeno do SCC nem raiz */
+				d = SCCRoot[SCCRoot[(*connects)->destId]];
+			}
+
+			SET_ORIGIN(connectionsToOrder, i, o);
+			SET_DEST(connectionsToOrder, i, d);
+
+			count[d]++;
 
 			Connection *garbage = *connects;
-
-			free((*connects)->originId);
 
 			*connects = (*connects)->next;
 
@@ -197,11 +223,10 @@ void add(Vertex *graph, int originId, int destId){
 		e->next = graph[originId - 1].head;
 		graph[originId - 1].head = e;
 	}
-
 }
 
 
-void tarjan(Vertex *graph, int size, Connection **SCCConnects, int *SCCCount){
+void tarjan(Vertex *graph, int size, Connection **SCCConnects){
 	int visited = 0, i;
 
 	Edge *stack = (Edge*)malloc(sizeof(Edge));
@@ -210,17 +235,17 @@ void tarjan(Vertex *graph, int size, Connection **SCCConnects, int *SCCCount){
 
 	for(i = 0; i < size; i++){
 		if(graph[i].d == -1){
-			tarjanVisit(&graph[i], &stack, &visited, SCCConnects, SCCCount);
+			tarjanVisit(&graph[i], &stack, &visited, SCCConnects);
 		}
 	}
 
 }
 
 
-void tarjanVisit(Vertex *u, Edge **stack, int *visited, Connection **SCCConnects, int *SCCCount){
+void tarjanVisit(Vertex *u, Edge **stack, int *visited, Connection **SCCConnects){
 
 	u->d = u->low = *visited;
-	*visited += 1;
+	(*visited)++;
 
 	push(stack, u);
 
@@ -229,7 +254,7 @@ void tarjanVisit(Vertex *u, Edge **stack, int *visited, Connection **SCCConnects
 	while(v != NULL){
 		if(v->destVertex->d == -1 || v->destVertex->inList){
 			if(v->destVertex->d == -1){
-				tarjanVisit(v->destVertex, stack, visited, SCCConnects, SCCCount);
+				tarjanVisit(v->destVertex, stack, visited, SCCConnects);
 			}
 
 			if(u->low >= v->destVertex->low){
@@ -241,37 +266,38 @@ void tarjanVisit(Vertex *u, Edge **stack, int *visited, Connection **SCCConnects
 		if(!(v->destVertex->inList)){
 			Connection *newConnect = (Connection*)malloc(sizeof(Connection));
 
-			newConnect->originId = u->SCCRoot;
-			newConnect->destId = *(*(v->destVertex->SCCRoot));
-			newConnect->children = (*SCCConnects == NULL) ? 1 : (*SCCConnects)->children + 1;
+			newConnect->originId = u->id;
+			newConnect->destId = v->destVertex->id;
 			newConnect->next = *SCCConnects;
 			*SCCConnects = newConnect;
+
+			connectCount++;
 		}
 
 		v = v->next;
 	}
 
 	if(u->d == u->low){
-		*(u->SCCRoot) = (int*)malloc(sizeof(int));
-		*(*(u->SCCRoot)) = u->id;
-		*SCCCount += 1;
+		SCCRoot[u->id] = u->id;
+		SCCCount++;
 
-		v = pop(stack);
+		int id = pop(stack);
 
-		while(v->destVertex->id != u->id){
-			*(v->destVertex->SCCRoot) = *(u->SCCRoot);
+		while(id != u->id){
+			
+			SCCRoot[id] = u->id;
 
 			/* Caso o id deste vertice seja inferior ao considerado root, trocar para o mais pequeno */
-			if(v->destVertex->id < *(*(u->SCCRoot))){ 
-				*(*(u->SCCRoot)) = v->destVertex->id;
+			if(id < SCCRoot[u->id]){
+				SCCRoot[u->id] = id;
 			}
-
-			free(v);
-
-			v = pop(stack);
+			
+			id = pop(stack);
 		}
 
-		free(v);
+		if(SCCRoot[u->id] != u->id){
+			SCCRoot[SCCRoot[u->id]] *= -1;
+		}
 	}
 }
 
@@ -282,20 +308,13 @@ void push(Edge **stack, Vertex *u){
 
 	Edge *new = (Edge*)malloc(sizeof(Edge));
 	new->destVertex = u;
-
-	if(*stack == NULL){
-		new->next = NULL;
-		*stack = new;
-	}
-	else{
-		new->next = *stack;
-		*stack = new;
-	}
+	new->next = *stack;
+	*stack = new;
 
 }
 
 
-Edge* pop(Edge **stack){
+int pop(Edge **stack){
 
 	Edge *popped = *stack;
 	
@@ -303,7 +322,10 @@ Edge* pop(Edge **stack){
 
 	popped->destVertex->inList = 0;
 
-	return popped;
+	int id = popped->destVertex->id;
 
+	free(popped);
+
+	return id;
 }
 
