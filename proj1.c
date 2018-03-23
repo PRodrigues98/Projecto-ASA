@@ -109,6 +109,8 @@ int main(){
 
 			Connection *garbage = *connects;
 
+			free((*connects)->originId);
+
 			*connects = (*connects)->next;
 
 			free(garbage);
