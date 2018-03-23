@@ -51,7 +51,18 @@ int main(){
 	scanf("%d", &E);
 
 	Vertex *graph = (Vertex*)malloc(sizeof(Vertex) * V);
-	SCCRoot = (int*)malloc(sizeof(int)*(V+1));
+
+	SCCRoot = (int*)malloc(sizeof(int)*(V + 1));
+
+	/* 
+	   Vectores que guardarao o numero de vezes que cada valor possivel 
+	   para o id de um vertice surge nas conexoes encontradas
+	   permitindo assim fazer um counting sort
+	*/
+	int *countOrigin = (int*)malloc(sizeof(int)*(V + 1));
+	int *countDest = (int*)malloc(sizeof(int)*(V + 1));
+
+
 
 	/* Inicializacao da Connection List */
 	Connection **connects = (Connection**)malloc(sizeof(Connection*));
@@ -64,6 +75,9 @@ int main(){
 		graph[i].inList = 0;
 
 		graph[i].head = NULL;
+
+		countOrigin[i] = 0;
+		countDest[i] = 0;
 	}
 
 
@@ -91,19 +105,6 @@ int main(){
 		int realConnectCount = 0, j;
 
 		int *connectionsToOrder = (int*)malloc(sizeof(int)*connectCount*2);
-
-
-		/* 
-		   Vectores que guardarao o numero de vezes que cada valor possivel 
-		   para o id de um vertice surge nas conexoes encontradas
-		   permitindo assim fazer um counting sort
-		*/
-		int *count = (int*)malloc(sizeof(int)*(V + 1));
-
-
-		for(i = 0; i < V + 1; i++){
-			count[i] = 0;
-		}
 
 		for(i = 0; i < connectCount; i++){
 
@@ -133,7 +134,8 @@ int main(){
 			SET_ORIGIN(connectionsToOrder, i, o);
 			SET_DEST(connectionsToOrder, i, d);
 
-			count[d]++;
+			countOrigin[o]++;
+			countDest[d]++;
 
 			Connection *garbage = *connects;
 
@@ -142,47 +144,42 @@ int main(){
 			free(garbage);
 		}
 
+		free(connects);
+		free(SCCRoot);
+
 		int *orderedConnections = (int*)malloc(sizeof(int)*connectCount*2);
 
 
 		for(i = 1; i < V; i++){
-			count[i] += count[i - 1];
+			countOrigin[i] += countOrigin[i - 1];
+			countDest[i] += countDest[i - 1];
 		}
 
 
 		/* Ordenar a segunda coluna (vertices destino) */
 		for(i = 0; i < connectCount; i++){
-			SET_ORIGIN(orderedConnections, count[GET_DEST(connectionsToOrder, i) - 1], GET_ORIGIN(connectionsToOrder, i));
-			SET_DEST(orderedConnections, count[GET_DEST(connectionsToOrder, i) - 1], GET_DEST(connectionsToOrder, i));
-			count[GET_DEST(connectionsToOrder, i) - 1]++;
+			SET_ORIGIN(orderedConnections, countDest[GET_DEST(connectionsToOrder, i) - 1], GET_ORIGIN(connectionsToOrder, i));
+			SET_DEST(orderedConnections, countDest[GET_DEST(connectionsToOrder, i) - 1], GET_DEST(connectionsToOrder, i));
+			countDest[GET_DEST(connectionsToOrder, i) - 1]++;
 		}
+
+		free(countDest);
 
 
 		/* Trocar os apontadores para ordenar a primeira coluna */
 		SWITCH(orderedConnections, connectionsToOrder);
 
 
-		for(i = 0; i < V + 1; i++){
-			count[i] = 0;
-		}
-
-
-		for(i = 0; i < connectCount; i++){
-			count[GET_ORIGIN(connectionsToOrder, i)]++;
-		}
-
-
-		for(i = 1; i < V; i++){
-			count[i] += count[i - 1];
-		}
-
-		
 		/* Ordenar a primeira coluna (vertices origem) */
 		for(i = 0; i < connectCount; i++){
-			SET_ORIGIN(orderedConnections, count[GET_ORIGIN(connectionsToOrder, i) - 1], GET_ORIGIN(connectionsToOrder, i));
-			SET_DEST(orderedConnections, count[GET_ORIGIN(connectionsToOrder, i) - 1], GET_DEST(connectionsToOrder, i));	
-			count[GET_ORIGIN(connectionsToOrder, i) - 1]++;
+			SET_ORIGIN(orderedConnections, countOrigin[GET_ORIGIN(connectionsToOrder, i) - 1], GET_ORIGIN(connectionsToOrder, i));
+			SET_DEST(orderedConnections, countOrigin[GET_ORIGIN(connectionsToOrder, i) - 1], GET_DEST(connectionsToOrder, i));	
+			countOrigin[GET_ORIGIN(connectionsToOrder, i) - 1]++;
 		}
+
+		free(countOrigin);
+		free(connectionsToOrder);
+
 
 		/* Contagem do numero de conexoes sem duplicados */
 		for(i = 0; i < connectCount; i++){
@@ -200,9 +197,7 @@ int main(){
 			i += j - 1;
 		}
 
-		free(count);
 		free(orderedConnections);
-		free(connectionsToOrder);
 
 	}
 
@@ -238,6 +233,8 @@ void tarjan(Vertex *graph, int size, Connection **SCCConnects){
 			tarjanVisit(&graph[i], &stack, &visited, SCCConnects);
 		}
 	}
+
+	free(stack);
 
 }
 
