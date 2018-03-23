@@ -52,15 +52,15 @@ int main(){
 
 	Vertex *graph = (Vertex*)malloc(sizeof(Vertex) * V);
 
-	SCCRoot = (int*)malloc(sizeof(int)*(V + 1));
+	SCCRoot = (int*)malloc(sizeof(int) * (V + 1));
 
 	/* 
 	   Vectores que guardarao o numero de vezes que cada valor possivel 
 	   para o id de um vertice surge nas conexoes encontradas
 	   permitindo assim fazer um counting sort
 	*/
-	int *countOrigin = (int*)malloc(sizeof(int)*(V + 1));
-	int *countDest = (int*)malloc(sizeof(int)*(V + 1));
+	int *countOrigin = (int*)malloc(sizeof(int) * (V + 1));
+	int *countDest = (int*)malloc(sizeof(int) * (V + 1));
 
 
 
